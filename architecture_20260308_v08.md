@@ -1459,6 +1459,10 @@ gcloud auth application-default login
 | Ansible `--tags` でタスクが実行されない | playbook.yml のロールにタグ未定義 | `{ role: webapp, tags: ['webapp'] }` 形式でタグを付与 |
 | Ops Agent 起動失敗 (`filter_pattern`) | `files` レシーバーに `filter_pattern` は無効 | `filter_pattern` を削除し、syslogパイプラインに統合 |
 | Ansible テンプレート `not found` エラー | タスクの `src:` とテンプレートファイル名が不一致 | ファイル名を汎用化（例: `db.conf.j2`）し `src:` を合わせる |
+| LB IP で `ERR_CONNECTION_CLOSED` | HTTPSリダイレクト有効 + SSL証明書未発行 | DNS Aレコード設定前はHTTPリダイレクトを無効化するか、`domain` を空にする |
+| DB接続で `Access denied` | `main.tf` にDB名/ユーザー名がハードコード（`myapp`）されていた | `.env` → `TF_VAR_db_name` / `TF_VAR_db_user` で注入するよう修正 |
+| `terraform apply` で `database exists` エラー | `gcloud` で手動作成したDBとTerraform管理が競合 | `terraform import` で既存リソースをstateに取り込む |
+| forwarding rule の `IP address in-use` エラー | 同一IPで新旧ルールの作成・削除が競合 | 再度 `terraform apply` を実行すれば解消 |
 
 <br>
 

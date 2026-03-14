@@ -950,6 +950,73 @@ src: db.conf.j2
 
 <br>
 
+### 10-12. LB IPで ERR_CONNECTION_CLOSED
+
+**症状:** ブラウザで `http://<LBのIP>` にアクセスすると `ERR_CONNECTION_CLOSED`。
+
+**原因:** `domain` が設定されていると、HTTP (80) はHTTPSリダイレクト専用になり、HTTPS (443) はSSL証明書が未発行（PROVISIONING）のため接続が閉じられる。
+
+**対処:** DNS Aレコード設定前はHTTPリダイレクトを無効化する。本構成ではHTTP直接アクセスを常時有効にし、ドメイン設定時はHTTP + HTTPSの並行運用としている。
+
+<br>
+
+### 10-13. DB接続で Access denied（DB名/ユーザー名の不一致）
+
+**症状:** PHPの `db-check.php` でDB接続エラー。
+
+```
+Access denied for user 'rubese-app'@'cloudsqlproxy~10.0.0.2' to database 'rubese'
+```
+
+**原因:** `terraform/environments/dev/main.tf` のモジュール呼び出しにDB名・ユーザー名がハードコードされていた（`"myapp"`, `"myapp-app"`）。`.env` で `DB_NAME=rubese` としても反映されない。
+
+**対処:** ハードコードを `var.db_name` / `var.db_user` に変更し、`setup.sh` から `TF_VAR_db_name` / `TF_VAR_db_user` としてエクスポートする。
+
+```hcl
+# NG: ハードコード
+db_name = "myapp"
+
+# OK: 変数化
+db_name = var.db_name
+```
+
+<br>
+
+### 10-14. terraform apply で database exists エラー
+
+**症状:**
+
+```
+Error creating Database: googleapi: Error 400: Can't create database 'rubese'; database exists.
+```
+
+**原因:** `gcloud sql databases create` で手動作成したDBが既に存在しており、Terraformの管理外となっている。
+
+**対処:** `terraform import` で既存リソースをstateに取り込む。
+
+```bash
+terraform import module.database.google_sql_database.default \
+  "projects/<PROJECT_ID>/instances/<INSTANCE_NAME>/databases/<DB_NAME>"
+```
+
+> **教訓:** Terraform管理下のリソースを `gcloud` コマンドで手動作成すると、state との不整合が発生する。手動作成した場合は必ず `terraform import` でstateに取り込む。
+
+<br>
+
+### 10-15. forwarding rule の IP address in-use エラー
+
+**症状:**
+
+```
+Error creating GlobalForwardingRule: Specified IP address is in-use and would result in a conflict.
+```
+
+**原因:** 同一IPアドレスで旧forwarding rule（HTTPリダイレクト）の削除と新forwarding rule（HTTP直接）の作成が同時に実行され、IPアドレスが競合した。
+
+**対処:** 再度 `terraform apply` を実行すれば解消する。旧ルールは前回で削除済みのため、新ルールの作成のみ実行される。
+
+<br>
+
 ---
 
 <br>
