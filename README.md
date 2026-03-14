@@ -134,7 +134,26 @@ gcloud auth application-default login
 
 ### 4. 動作確認
 
-`terraform output` で表示されるLBのIPにブラウザでアクセス。
+```bash
+# LBの外部IPを確認
+cd terraform/environments/dev && terraform output
+```
+
+#### IPアドレスで確認（ドメイン不要）
+
+ブラウザで `http://<LBのIP>` にアクセス。
+
+#### ドメインで確認（HTTPS有効化時）
+
+DNS管理サービス（Cloudflare、お名前.com、Route 53 等）で以下のAレコードを設定:
+
+| タイプ | ホスト | 値 | 備考 |
+|---|---|---|---|
+| A | `@` | LBの外部IP | Cloudflareの場合「DNS only（グレーの雲）」にする |
+
+> **注意:** Cloudflareのプロキシモード（オレンジの雲）を使うと、GCPのSSL証明書の発行・検証が失敗します。必ず「DNS only」に設定してください。
+
+DNS反映後（数分〜最大1時間）、`https://your-domain.com` にアクセスして確認。
 
 ### 5. リソース削除
 
