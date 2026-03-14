@@ -119,11 +119,11 @@ gcloud auth application-default login
 ./scripts/setup.sh info
 
 # GCSバケット作成（チーム開発時、初回のみ）
-./scripts/setup.sh bootstrap
+./scripts/setup.sh bootstrap      # 確認プロンプトで yes を入力
 
 # dev環境にインフラ構築
 ./scripts/setup.sh plan dev       # 実行計画確認
-./scripts/setup.sh apply dev      # 適用
+./scripts/setup.sh apply dev      # 確認プロンプトで yes を入力
 
 # dev環境にAnsible実行
 ./scripts/setup.sh ansible dev
