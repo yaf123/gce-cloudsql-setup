@@ -43,6 +43,7 @@ usage() {
   echo "  plan    <dev|prod> Terraform plan"
   echo "  apply   <dev|prod> Terraform apply"
   echo "  destroy <dev|prod> Terraform destroy"
+  echo "  ssh     <dev|prod> GCEにSSH接続（初回の鍵生成にも使用）"
   echo "  ansible <dev|prod> Ansible playbook 実行"
   echo "  ansible-tag <dev|prod> <tag>  特定ロールのみ実行"
   echo "  info               現在の設定値を表示"
@@ -171,6 +172,13 @@ case "${1:-}" in
     ;;
   destroy)
     cmd_terraform destroy "$2"
+    ;;
+  ssh)
+    if [ -z "$2" ]; then
+      echo "ERROR: 環境を指定してください (dev|prod)"
+      exit 1
+    fi
+    gcloud compute ssh "${PROJECT_NAME}-${2}-web" --zone="$GCP_ZONE" --tunnel-through-iap
     ;;
   ansible)
     cmd_ansible "$2"

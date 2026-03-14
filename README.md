@@ -128,9 +128,8 @@ gcloud auth application-default login
 ./scripts/setup.sh plan dev       # 実行計画確認
 ./scripts/setup.sh apply dev      # 確認プロンプトで yes を入力
 
-# SSH鍵の初期設定（初回のみ、apply後に実行）
-# terraform output の ssh_command に表示されるコマンドを実行し、接続確認後 exit で抜ける
-gcloud compute ssh myapp-dev-web --zone=asia-northeast1-a --tunnel-through-iap
+# SSH鍵の初期設定（初回のみ、apply後に実行し、接続確認後 exit で抜ける）
+./scripts/setup.sh ssh dev
 
 # dev環境にAnsible実行
 ./scripts/setup.sh ansible dev
