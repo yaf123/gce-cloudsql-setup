@@ -108,23 +108,21 @@ resource "google_compute_url_map" "web" {
   default_service = google_compute_backend_service.web.id
 }
 
-# ドメインなし: HTTP直接
+# HTTP直接アクセス（常に有効）
 resource "google_compute_target_http_proxy" "web" {
-  count   = var.domain == "" ? 1 : 0
   name    = "${var.prefix}-http-proxy"
   url_map = google_compute_url_map.web.id
 }
 
-resource "google_compute_global_forwarding_rule" "http_direct" {
-  count                 = var.domain == "" ? 1 : 0
+resource "google_compute_global_forwarding_rule" "http" {
   name                  = "${var.prefix}-http-fw-rule"
-  target                = google_compute_target_http_proxy.web[0].id
+  target                = google_compute_target_http_proxy.web.id
   ip_address            = google_compute_global_address.lb_ip.id
   port_range            = "80"
   load_balancing_scheme = "EXTERNAL_MANAGED"
 }
 
-# ドメインあり: HTTPS + HTTPリダイレクト
+# ドメインあり: HTTPS追加（HTTPも維持）
 resource "google_compute_managed_ssl_certificate" "web" {
   count = var.domain != "" ? 1 : 0
   name  = "${var.prefix}-cert"
@@ -147,30 +145,5 @@ resource "google_compute_global_forwarding_rule" "https" {
   target                = google_compute_target_https_proxy.web[0].id
   ip_address            = google_compute_global_address.lb_ip.id
   port_range            = "443"
-  load_balancing_scheme = "EXTERNAL_MANAGED"
-}
-
-resource "google_compute_url_map" "http_redirect" {
-  count = var.domain != "" ? 1 : 0
-  name  = "${var.prefix}-http-redirect"
-
-  default_url_redirect {
-    https_redirect = true
-    strip_query    = false
-  }
-}
-
-resource "google_compute_target_http_proxy" "redirect" {
-  count   = var.domain != "" ? 1 : 0
-  name    = "${var.prefix}-http-redirect-proxy"
-  url_map = google_compute_url_map.http_redirect[0].id
-}
-
-resource "google_compute_global_forwarding_rule" "http_redirect" {
-  count                 = var.domain != "" ? 1 : 0
-  name                  = "${var.prefix}-http-redirect-fw-rule"
-  target                = google_compute_target_http_proxy.redirect[0].id
-  ip_address            = google_compute_global_address.lb_ip.id
-  port_range            = "80"
   load_balancing_scheme = "EXTERNAL_MANAGED"
 }

@@ -63,8 +63,8 @@ module "database" {
   region                 = var.region
   vpc_id                 = module.network.vpc_id
   private_vpc_connection = module.network.private_vpc_connection
-  db_name                = "myapp"
-  db_user                = "myapp-app"
+  db_name                = var.db_name
+  db_user                = var.db_user
   db_password            = var.db_password
   db_tier                = var.db_tier
   ha_enabled             = var.ha_enabled

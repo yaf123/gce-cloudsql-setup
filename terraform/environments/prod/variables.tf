@@ -27,6 +27,16 @@ variable "zone" {
   default     = "asia-northeast1-a"
 }
 
+variable "db_name" {
+  description = "データベース名"
+  type        = string
+}
+
+variable "db_user" {
+  description = "データベースユーザー名"
+  type        = string
+}
+
 variable "db_password" {
   description = "DBパスワード"
   type        = string

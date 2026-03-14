@@ -30,6 +30,8 @@ export TF_VAR_region="$GCP_REGION"
 export TF_VAR_zone="$GCP_ZONE"
 export TF_VAR_domain="${DOMAIN:-}"
 export TF_VAR_bucket_name="$TFSTATE_BUCKET"
+export TF_VAR_db_name="$DB_NAME"
+export TF_VAR_db_user="$DB_USER"
 export TF_VAR_db_password="${DB_PASSWORD:-}"
 
 # 使用方法
