@@ -102,6 +102,9 @@ vi .env   # 実際のGCPプロジェクトID等を記入
 | `GCP_PROJECT_ID` | GCPプロジェクトID | `my-project-123456` |
 | `PROJECT_NAME` | リソース名のプレフィックス | `myapp` |
 | `DOMAIN` | ドメイン（HTTPS有効化時） | `example.com` |
+| `DB_PASSWORD` | DBパスワード | （任意の強力なパスワード） |
+| `GCE_SSH_USER` | GCEへのSSHユーザー名（省略可） | デフォルト: 現在のOSユーザー |
+| `GCE_SSH_KEY` | SSH秘密鍵パス（省略可） | デフォルト: `~/.ssh/google_compute_engine` |
 
 > `.env` は `.gitignore` 済みのため、Git管理外です。
 

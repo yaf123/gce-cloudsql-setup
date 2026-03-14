@@ -101,7 +101,39 @@ cmd_ansible() {
     exit 1
   fi
 
-  cd "$ROOT_DIR/terraform/ansible"
+  local ansible_dir="$ROOT_DIR/terraform/ansible"
+  local host_name="${PROJECT_NAME}-${env}-web"
+  local inventory_file="/tmp/ansible-inventory-${env}.yml"
+
+  # inventoryを動的生成
+  cat > "$inventory_file" <<INVENTORY
+all:
+  hosts:
+    ${host_name}:
+      ansible_host: ${host_name}
+  children:
+    ${env}:
+      hosts:
+        ${host_name}:
+INVENTORY
+
+  echo "=== Ansible inventory（動的生成）==="
+  echo "  ホスト: $host_name"
+  echo "  ゾーン: $GCP_ZONE"
+  echo ""
+
+  # world writable directory 対策: ansible.cfg の設定を環境変数で渡す
+  export ANSIBLE_ROLES_PATH="$ansible_dir/roles"
+  # SSHユーザー（.envのGCE_SSH_USERで上書き可、デフォルトは現在のOSユーザー）
+  local ssh_user="${GCE_SSH_USER:-$(whoami)}"
+  echo "  SSHユーザー: $ssh_user"
+  echo ""
+  export ANSIBLE_REMOTE_USER="$ssh_user"
+  export ANSIBLE_HOST_KEY_CHECKING=False
+  export ANSIBLE_RETRY_FILES_ENABLED=False
+  local ssh_key="${GCE_SSH_KEY:-$HOME/.ssh/google_compute_engine}"
+  export ANSIBLE_SSH_ARGS="-i $ssh_key -o ProxyCommand=\"gcloud compute start-iap-tunnel %h 22 --listen-on-stdin --zone=${GCP_ZONE} --quiet\""
+  export ANSIBLE_PIPELINING=True
 
   local extra_vars="project_id=$GCP_PROJECT_ID"
   extra_vars="$extra_vars prefix=${PROJECT_NAME}-${env}"
@@ -110,7 +142,7 @@ cmd_ansible() {
   extra_vars="$extra_vars db_name=$DB_NAME"
   extra_vars="$extra_vars db_user=$DB_USER"
 
-  local cmd="ansible-playbook -i inventory/${env}.yml playbook.yml --extra-vars \"$extra_vars\""
+  local cmd="ansible-playbook -i $inventory_file $ansible_dir/playbook.yml --extra-vars \"$extra_vars\""
 
   if [ -n "$tag" ]; then
     cmd="$cmd --tags $tag"

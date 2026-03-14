@@ -4,9 +4,9 @@
   become: true
 
   roles:
-    - common
-    - cloud-sql-proxy
-    - db-config
-    - apache
-    - webapp
-    - ops-agent
+    - { role: common, tags: ['common'] }
+    - { role: cloud-sql-proxy, tags: ['cloud-sql-proxy'] }
+    - { role: db-config, tags: ['db-config'] }
+    - { role: apache, tags: ['apache'] }
+    - { role: webapp, tags: ['webapp'] }
+    - { role: ops-agent, tags: ['ops-agent'] }

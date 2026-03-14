@@ -862,6 +862,51 @@ pipelining = True
 - GCEに外部IPは不要（IAP経由で接続）
 - `pipelining = True` で実行速度を向上
 
+### 9-7. Ansible SSH設定（.env）
+
+`setup.sh` は実行時に以下を自動処理するため、`ansible.cfg` の直接編集は不要:
+
+- **inventory動的生成**: `.env` の `PROJECT_NAME` + 環境名からホスト名を生成（例: `rubese-dev-web`）
+- **SSH設定**: 環境変数（`ANSIBLE_*`）で注入し、world writable directory の問題を回避
+
+`.env` で設定可能なSSH関連の変数:
+
+| 変数 | デフォルト値 | 説明 |
+|---|---|---|
+| `GCE_SSH_USER` | 現在のOSユーザー（`whoami`） | GCEへのSSHユーザー名 |
+| `GCE_SSH_KEY` | `~/.ssh/google_compute_engine` | SSH秘密鍵パス（`gcloud compute ssh` が自動生成） |
+
+> **注意:** 初回は `gcloud compute ssh <インスタンス名> --zone=<ゾーン> --tunnel-through-iap` を実行して、SSH鍵の生成とOS Login設定を完了させてください。
+
+### 9-8. WSL2環境での注意事項
+
+WSL2（Windows Subsystem for Linux）から実行する場合、以下の問題に注意が必要:
+
+#### CRLF改行問題
+
+Windowsマウント（`/mnt/d/` 等）上のファイルはCRLF改行になることがある。シェルスクリプトがCRLFだと `cannot execute: required file not found` エラーになる。
+
+```bash
+# 確認
+file scripts/setup.sh
+# → "with CRLF line terminators" と表示されたらNG
+
+# 修正
+tr -d '\r' < scripts/setup.sh > /tmp/setup.sh && cp /tmp/setup.sh scripts/setup.sh
+```
+
+> **注意:** WSL2のWindowsマウント上では `sed -i` が効かない場合がある。`tr` + `cp` で対処する。
+
+#### ansible.cfg が無視される（world writable directory）
+
+Windowsマウント上のディレクトリは `777` パーミッション（world writable）となるため、Ansibleがセキュリティ上 `ansible.cfg` を無視する。
+
+```
+[WARNING]: Ansible is being run in a world writable directory, ignoring it as an ansible.cfg source.
+```
+
+**対策:** `setup.sh` では `ansible.cfg` を使わず、環境変数（`ANSIBLE_REMOTE_USER`, `ANSIBLE_SSH_ARGS` 等）で設定を注入している。
+
 <br>
 
 ---
@@ -1407,6 +1452,13 @@ gcloud auth application-default login
 | `API not enabled` | GCP APIが未有効化 | Terraformコードで自動有効化される（または手動で `gcloud services enable <API>`） |
 | Ansible SSH接続エラー | IAP権限不足 or GCE未起動 | `gcloud compute ssh` で直接接続確認、IAM権限確認 |
 | ブラウザが開かない（WSL2） | WSLからブラウザを起動できない | 表示されるURLをWindowsブラウザにコピペ |
+| `cannot execute: required file not found` | シェルスクリプトがCRLF改行（WSL2） | `tr -d '\r' < scripts/setup.sh > /tmp/fix && cp /tmp/fix scripts/setup.sh` |
+| `ansible.cfg` が無視される（WARNING） | Windowsマウント上はworld writable | `setup.sh` が環境変数で自動回避するため対処不要 |
+| Ansible `Permission denied (publickey)` | SSHユーザー名/鍵が不一致 | `.env` の `GCE_SSH_USER` / `GCE_SSH_KEY` を確認（9-7参照） |
+| terraform.tfvarsのプレースホルダが使われる | tfvarsに共通値が残っている | 共通値はtfvarsから削除し `.env` → `TF_VAR_` のみで管理 |
+| Ansible `--tags` でタスクが実行されない | playbook.yml のロールにタグ未定義 | `{ role: webapp, tags: ['webapp'] }` 形式でタグを付与 |
+| Ops Agent 起動失敗 (`filter_pattern`) | `files` レシーバーに `filter_pattern` は無効 | `filter_pattern` を削除し、syslogパイプラインに統合 |
+| Ansible テンプレート `not found` エラー | タスクの `src:` とテンプレートファイル名が不一致 | ファイル名を汎用化（例: `db.conf.j2`）し `src:` を合わせる |
 
 <br>
 

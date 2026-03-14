@@ -810,6 +810,146 @@ terraform destroy -var="db_password=xxx" -auto-approve
 
 <br>
 
+### 10-5. terraform.tfvars のプレースホルダ値が使われる
+
+**症状:** `setup.sh` 経由で実行しているのに、`terraform plan` で `project = "your-gcp-project-id"` 等のプレースホルダ値が表示される。
+
+**原因:** `terraform.tfvars` にプレースホルダ値がハードコードされている。
+
+**対処:** 共通設定（`project_id`, `project_name`, `region`, `zone`, `domain`）は `terraform.tfvars` から削除する。これらは `.env` → `setup.sh` → `TF_VAR_` 環境変数で注入される。`terraform.tfvars` には環境固有の設定（`env`, `db_tier`, `ha_enabled`, `machine_type`）のみ残す。
+
+> **補足:** Terraformの変数優先順位: `TF_VAR_` 環境変数 > `terraform.tfvars` > `variables.tf` の default。`TF_VAR_` が最も優先されるが、tfvarsにプレースホルダが残っていると plan 表示時に紛らわしい。
+
+<br>
+
+### 10-6. WSL2: スクリプトが実行できない（CRLF改行）
+
+**症状:**
+
+```
+bash: ./scripts/setup.sh: cannot execute: required file not found
+```
+
+**原因:** WSL2のWindowsマウント（`/mnt/d/` 等）上で作成・編集されたファイルはCRLF改行になることがある。bashはshebang行（`#!/bin/bash\r`）を解釈できずエラーになる。
+
+**確認方法:**
+
+```bash
+file scripts/setup.sh
+# → "with CRLF line terminators" と表示されたらNG
+```
+
+**対処:**
+
+```bash
+# LFに変換（sed -i はWSL2のWindowsマウントで効かない場合があるため tr を使用）
+tr -d '\r' < scripts/setup.sh > /tmp/setup.sh && cp /tmp/setup.sh scripts/setup.sh
+tr -d '\r' < .env > /tmp/dotenv && cp /tmp/dotenv .env
+```
+
+<br>
+
+### 10-7. Ansible: ansible.cfg が無視される（world writable directory）
+
+**症状:**
+
+```
+[WARNING]: Ansible is being run in a world writable directory, ignoring it as an ansible.cfg source.
+```
+
+**原因:** WSL2のWindowsマウント上のディレクトリは `777` パーミッション（world writable）となる。Ansibleはセキュリティ上、world writable なディレクトリの `ansible.cfg` を無視する。
+
+**対処:** `setup.sh` では `ansible.cfg` を使わず、環境変数（`ANSIBLE_REMOTE_USER`, `ANSIBLE_SSH_ARGS` 等）で設定を注入しているため、追加対処は不要。
+
+<br>
+
+### 10-8. Ansible: Permission denied (publickey)
+
+**症状:**
+
+```
+fj6600ee_gmail_com@rubese-dev-web: Permission denied (publickey).
+```
+
+**原因:** SSHユーザー名またはSSH鍵が正しくない。
+
+| 確認ポイント | 対処 |
+|---|---|
+| SSH鍵が未生成 | `gcloud compute ssh <インスタンス名> --zone=<ゾーン> --tunnel-through-iap` を1回実行 |
+| ユーザー名の不一致 | `gcloud compute ssh` 接続時のプロンプト（`ユーザー名@ホスト:~$`）を確認し `.env` の `GCE_SSH_USER` に設定 |
+| SSH鍵パスの不一致 | `.env` の `GCE_SSH_KEY` に正しい秘密鍵パスを設定 |
+
+> **注意:** OS Loginのユーザー名（`gcloud compute os-login describe-profile` で取得する `email_com` 形式）と、実際のGCE上のSSHユーザー名は異なる場合がある。`gcloud compute ssh` で接続した際に表示されるユーザー名が正しい。
+
+<br>
+
+### 10-9. Ansible `--tags` でタスクが実行されない
+
+**症状:** `setup.sh ansible-tag dev webapp` を実行しても `Gathering Facts` のみで終了し、対象ロールのタスクが実行されない。
+
+**原因:** `playbook.yml` のロール定義にタグが付いていない。
+
+**対処:** ロール定義にタグを付与する。
+
+```yaml
+# NG: タグなし
+roles:
+  - webapp
+
+# OK: タグあり
+roles:
+  - { role: webapp, tags: ['webapp'] }
+```
+
+<br>
+
+### 10-10. Ops Agent 起動失敗（設定ファイルエラー）
+
+**症状:** Ansible の `restart ops-agent` ハンドラで失敗。
+
+```
+Unable to restart service google-cloud-ops-agent
+```
+
+**原因の確認:**
+
+```bash
+gcloud compute ssh <インスタンス名> --zone=<ゾーン> --tunnel-through-iap \
+  -- "sudo journalctl -xeu google-cloud-ops-agent --no-pager | tail -30"
+```
+
+**よくある原因:**
+
+| 原因 | 対処 |
+|---|---|
+| `filter_pattern` は `files` レシーバーの有効なオプションではない | `filter_pattern` 行を削除し、syslog パイプラインに統合 |
+| YAML構文エラー | `config.yaml.j2` のインデントを確認 |
+| ログファイルが存在しない | `include_paths` で指定したファイルが存在するか確認 |
+
+<br>
+
+### 10-11. Ansible テンプレートファイルが見つからない
+
+**症状:**
+
+```
+Could not find or access 'myapp-db.conf.j2'
+```
+
+**原因:** タスクの `src:` で指定したテンプレートファイル名と、`templates/` ディレクトリ内の実際のファイル名が一致していない。プロジェクト名の汎用化（sanitize）時にタスク側のみ変更してテンプレートファイル名が旧名のまま残るケースで発生する。
+
+**対処:** テンプレートファイル名をプロジェクト名に依存しない汎用名にリネームし、タスクの `src:` も合わせる。
+
+```yaml
+# NG: プロジェクト固有名
+src: rubese-db.conf.j2
+
+# OK: 汎用名
+src: db.conf.j2
+```
+
+<br>
+
 ---
 
 <br>

@@ -15,13 +15,7 @@ logging:
       type: files
       include_paths:
         - {{ php_error_log }}
-    # Cloud SQL Auth Proxy ログ
-    cloud_sql_proxy:
-      type: files
-      include_paths:
-        - /var/log/syslog
-      filter_pattern: "cloud-sql-proxy"
-    # システムログ
+    # システムログ（Cloud SQL Auth Proxy ログを含む）
     syslog:
       type: files
       include_paths:
@@ -35,12 +29,6 @@ logging:
       fields:
         labels."app":
           static_value: "php"
-    # Auth Proxyログにラベル付与
-    proxy_label:
-      type: modify_fields
-      fields:
-        labels."app":
-          static_value: "cloud-sql-proxy"
 
   service:
     pipelines:
@@ -51,9 +39,6 @@ logging:
       php_errors:
         receivers: [php_errors]
         processors: [php_label]
-      cloud_sql_proxy:
-        receivers: [cloud_sql_proxy]
-        processors: [proxy_label]
       syslog:
         receivers: [syslog]
 
