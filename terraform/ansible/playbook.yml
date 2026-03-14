@@ -1,0 +1,12 @@
+---
+- name: MyApp GCE セットアップ
+  hosts: all
+  become: true
+
+  roles:
+    - common
+    - cloud-sql-proxy
+    - db-config
+    - apache
+    - webapp
+    - ops-agent

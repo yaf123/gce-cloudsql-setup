@@ -1,0 +1,8 @@
+all:
+  hosts:
+    myapp-prod-web:
+      ansible_host: myapp-prod-web
+  children:
+    prod:
+      hosts:
+        myapp-prod-web:

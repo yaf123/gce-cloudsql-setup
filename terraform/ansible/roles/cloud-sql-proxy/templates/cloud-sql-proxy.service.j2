@@ -1,0 +1,16 @@
+[Unit]
+Description=Cloud SQL Auth Proxy
+After=network.target
+
+[Service]
+Type=simple
+ExecStart={{ cloud_sql_proxy_bin }} \
+  --private-ip \
+  --port=3306 \
+  {{ cloudsql_connection_name }}
+Restart=always
+RestartSec=5
+User=www-data
+
+[Install]
+WantedBy=multi-user.target

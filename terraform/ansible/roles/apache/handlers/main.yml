@@ -1,0 +1,10 @@
+---
+- name: restart apache
+  ansible.builtin.systemd:
+    name: apache2
+    state: restarted
+
+- name: restart cloud-sql-proxy
+  ansible.builtin.systemd:
+    name: cloud-sql-proxy
+    state: restarted

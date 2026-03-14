@@ -1,0 +1,71 @@
+logging:
+  receivers:
+    # Apache アクセスログ
+    apache_access:
+      type: apache_access
+      include_paths:
+        - /var/log/apache2/access.log
+    # Apache エラーログ
+    apache_error:
+      type: apache_error
+      include_paths:
+        - /var/log/apache2/error.log
+    # PHP エラーログ
+    php_errors:
+      type: files
+      include_paths:
+        - {{ php_error_log }}
+    # Cloud SQL Auth Proxy ログ
+    cloud_sql_proxy:
+      type: files
+      include_paths:
+        - /var/log/syslog
+      filter_pattern: "cloud-sql-proxy"
+    # システムログ
+    syslog:
+      type: files
+      include_paths:
+        - /var/log/syslog
+        - /var/log/auth.log
+
+  processors:
+    # PHPエラーログにラベル付与
+    php_label:
+      type: modify_fields
+      fields:
+        labels."app":
+          static_value: "php"
+    # Auth Proxyログにラベル付与
+    proxy_label:
+      type: modify_fields
+      fields:
+        labels."app":
+          static_value: "cloud-sql-proxy"
+
+  service:
+    pipelines:
+      apache_access:
+        receivers: [apache_access]
+      apache_error:
+        receivers: [apache_error]
+      php_errors:
+        receivers: [php_errors]
+        processors: [php_label]
+      cloud_sql_proxy:
+        receivers: [cloud_sql_proxy]
+        processors: [proxy_label]
+      syslog:
+        receivers: [syslog]
+
+metrics:
+  receivers:
+    # Apache メトリクス（リクエスト数、レスポンス時間等）
+    apache:
+      type: apache
+      server_status_url: http://127.0.0.1/server-status?auto
+    # ホストメトリクス（CPU, メモリ, ディスク）は自動収集
+
+  service:
+    pipelines:
+      apache:
+        receivers: [apache]

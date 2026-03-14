@@ -1,0 +1,8 @@
+# prod環境変数
+env: prod
+prefix: myapp-prod
+project_id: your-gcp-project-id
+cloudsql_connection_name: "your-gcp-project-id:asia-northeast1:myapp-prod-db"
+db_secret_id: myapp-prod-db-password
+db_name: myapp
+db_user: myapp-app

@@ -1,0 +1,13 @@
+# 環境変数（実際の値を含むためGit管理外）
+.env
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+crash.log
+
+# OS
+.DS_Store
+Thumbs.db

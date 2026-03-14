@@ -1,0 +1,20 @@
+---
+- name: Secret Manager から DBパスワード取得
+  ansible.builtin.command:
+    cmd: >
+      gcloud secrets versions access latest
+      --secret="{{ db_secret_id }}"
+      --project="{{ project_id }}"
+  register: db_password_result
+  changed_when: false
+  no_log: true
+
+- name: DB設定ファイル作成
+  ansible.builtin.template:
+    src: myapp-db.conf.j2
+    dest: "{{ db_config_path }}"
+    owner: root
+    group: www-data
+    mode: "0640"
+  vars:
+    db_password: "{{ db_password_result.stdout }}"

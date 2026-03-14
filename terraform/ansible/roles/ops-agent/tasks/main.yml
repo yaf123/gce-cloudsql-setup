@@ -1,0 +1,24 @@
+---
+- name: Ops Agent インストールスクリプト取得
+  ansible.builtin.get_url:
+    url: https://dl.google.com/cloudagents/add-google-cloud-ops-agent-repo.sh
+    dest: /tmp/add-google-cloud-ops-agent-repo.sh
+    mode: "0755"
+
+- name: Ops Agent インストール
+  ansible.builtin.command:
+    cmd: bash /tmp/add-google-cloud-ops-agent-repo.sh --also-install
+  args:
+    creates: /usr/bin/google_cloud_ops_agent_engine
+
+- name: Ops Agent インストールスクリプト削除
+  ansible.builtin.file:
+    path: /tmp/add-google-cloud-ops-agent-repo.sh
+    state: absent
+
+- name: Ops Agent 設定ファイル配置
+  ansible.builtin.template:
+    src: config.yaml.j2
+    dest: /etc/google-cloud-ops-agent/config.yaml
+    mode: "0644"
+  notify: restart ops-agent

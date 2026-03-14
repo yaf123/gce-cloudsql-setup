@@ -1,0 +1,35 @@
+---
+- name: PHP ログ設定ファイル配置
+  ansible.builtin.template:
+    src: 99-logging.ini.j2
+    dest: /etc/php/8.2/apache2/conf.d/99-logging.ini
+    mode: "0644"
+  notify: restart apache
+
+- name: PHP エラーログファイル作成
+  ansible.builtin.file:
+    path: "{{ php_error_log }}"
+    state: touch
+    owner: www-data
+    group: www-data
+    mode: "0644"
+  changed_when: false
+
+- name: Apache server-status 設定
+  ansible.builtin.template:
+    src: status.conf.j2
+    dest: /etc/apache2/mods-available/status.conf
+    mode: "0644"
+  notify: restart apache
+
+- name: Apache status モジュール有効化
+  ansible.builtin.apache2_module:
+    name: status
+    state: present
+  notify: restart apache
+
+- name: Apache 有効化・起動
+  ansible.builtin.systemd:
+    name: apache2
+    enabled: true
+    state: started

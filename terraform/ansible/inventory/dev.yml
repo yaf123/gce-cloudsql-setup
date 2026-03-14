@@ -1,0 +1,8 @@
+all:
+  hosts:
+    myapp-dev-web:
+      ansible_host: myapp-dev-web
+  children:
+    dev:
+      hosts:
+        myapp-dev-web:

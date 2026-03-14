@@ -1,0 +1,19 @@
+---
+- name: デフォルト index.html 削除
+  ansible.builtin.file:
+    path: "{{ apache_document_root }}/index.html"
+    state: absent
+
+- name: PHPアプリファイル配置
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "{{ apache_document_root }}/{{ item }}"
+    owner: www-data
+    group: www-data
+    mode: "0644"
+  loop:
+    - db-config.php
+    - index.php
+    - db-check.php
+    - db-sample.php
+    - health

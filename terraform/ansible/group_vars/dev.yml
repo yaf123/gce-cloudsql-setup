@@ -1,0 +1,8 @@
+# dev環境変数
+env: dev
+prefix: myapp-dev
+project_id: your-gcp-project-id
+cloudsql_connection_name: "your-gcp-project-id:asia-northeast1:myapp-dev-db"
+db_secret_id: myapp-dev-db-password
+db_name: myapp
+db_user: myapp-app

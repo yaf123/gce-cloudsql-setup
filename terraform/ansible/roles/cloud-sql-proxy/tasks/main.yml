@@ -1,0 +1,23 @@
+---
+- name: Cloud SQL Auth Proxy ダウンロード
+  ansible.builtin.get_url:
+    url: "https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/{{ cloud_sql_proxy_version }}/cloud-sql-proxy.linux.amd64"
+    dest: "{{ cloud_sql_proxy_bin }}"
+    mode: "0755"
+
+- name: Cloud SQL Auth Proxy systemd サービス作成
+  ansible.builtin.template:
+    src: cloud-sql-proxy.service.j2
+    dest: /etc/systemd/system/cloud-sql-proxy.service
+    mode: "0644"
+  notify: restart cloud-sql-proxy
+
+- name: systemd デーモンリロード
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Cloud SQL Auth Proxy 有効化・起動
+  ansible.builtin.systemd:
+    name: cloud-sql-proxy
+    enabled: true
+    state: started

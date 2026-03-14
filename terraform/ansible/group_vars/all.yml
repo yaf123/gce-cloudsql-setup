@@ -1,0 +1,10 @@
+# 全環境共通変数
+cloud_sql_proxy_version: "v2.14.3"
+cloud_sql_proxy_bin: "/usr/local/bin/cloud-sql-proxy"
+
+# Apache
+apache_document_root: "/var/www/html"
+php_error_log: "/var/log/apache2/php_errors.log"
+
+# DB設定ファイル
+db_config_path: "/etc/myapp-db.conf"
