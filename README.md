@@ -130,6 +130,7 @@ gcloud auth application-default login
 ./scripts/setup.sh apply dev      # 確認プロンプトで yes を入力
 
 # SSH鍵の初期設定（初回のみ、apply後に実行）
+# Ansible がIAP経由でGCEに接続するためのSSH鍵（~/.ssh/google_compute_engine）を生成する
 # パスフレーズを聞かれたら空Enter（設定しない）、接続確認後 exit で抜ける
 ./scripts/setup.sh ssh dev
 
