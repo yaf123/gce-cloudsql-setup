@@ -1,68 +1,33 @@
+<!-- gdoc: https://docs.google.com/document/d/1MChAQYJCjlkFb_93HCbE1qD7wWnCBsbwhUwg2I-h1sI/edit -->
 # GCE + Cloud SQL 堅牢構成 仕様書
 
 <br>
 
 ## 1. 全体構成図
 
-```
-                        ┌─────────────────────────────────────────────┐
-                        │                 Internet                    │
-                        └────────────────────┬────────────────────────┘
-                                             │
-                                   ┌─────────▼─────────┐
-                                   │    Cloud Armor     │
-                                   │  (WAF / DDoS防御)  │
-                                   └─────────┬─────────┘
-                                             │
-                                   ┌─────────▼─────────┐
-                                   │  External App LB   │
-                                   │   (HTTPS / L7)     │
-                                   │  Anycast Global IP  │
-                                   └─────────┬─────────┘
-                                             │
- ┌───────────────────────────────────────────┼──────────────────────────────┐
- │  VPC: {prefix}-vpc                        │                              │
- │  ┌───────────────────────────────────────┼────────────────────────┐     │
- │  │  Subnet: {prefix}-subnet              │                        │     │
- │  │  asia-northeast1                      │                        │     │
- │  │  Private Google Access: ON             │                        │     │
- │  │                              ┌─────────▼─────────┐             │     │
- │  │                              │       GCE          │             │     │
- │  │           ┌──IAP SSH────────▶│  {prefix}-web      │             │     │
- │  │           │                  │  外部IPなし         │             │     │
- │  │           │                  │  Apache + PHP      │             │     │
- │  │           │                  │  Cloud SQL Proxy   │──┐          │     │
- │  │           │                  │  Ops Agent         │  │          │     │
- │  │           │                  └─────────┬─────────┘  │          │     │
- │  │           │                            │ Private IP │          │     │
- │  │           │                  ┌─────────▼─────────┐  │          │     │
- │  │           │                  │  Private Services  │  │          │     │
- │  │           │                  │  Access (Peering)  │  │          │     │
- │  │           │                  └─────────┬─────────┘  │          │     │
- │  └───────────│────────────────────────────┼────────────│──────────┘     │
- │              │                  ┌─────────▼─────────┐  │                │
- │              │                  │    Cloud SQL       │  │                │
- │              │                  │    MySQL 8.0       │  │                │
- │              │                  │    {prefix}-db     │  │                │
- │              │                  │    Private IPのみ   │  │                │
- │              │                  └───────────────────┘  │                │
- │              │                                         │                │
- │  ┌───────────┼────────────────────────────────────┐    │                │
- │  │  Cloud Router + Cloud NAT                      │    │                │
- │  │  GCE → 外部通信 (apt, pip等)                    │    │                │
- │  └────────────────────────────────────────────────┘    │                │
- └────────────────────────────────────────────────────────│────────────────┘
-                                                          │
-                                              ┌───────────▼───────────┐
-                                              │  Cloud Logging        │
-                                              │  + Cloud Monitoring   │
-                                              │  (ログ検索・メトリクス   │
-                                              │   ダッシュボード・アラート) │
-                                              └───────────────────────┘
- ┌──────────────────────┐
- │  管理者PC             │
- │  gcloud CLI           │──── IAP Tunnel ──── GCE SSH
- └──────────────────────┘
+```mermaid
+graph TB
+    Internet["Internet"] --> Armor["Cloud Armor<br/>(WAF / DDoS防御)"]
+    Armor --> LB["External App LB<br/>(HTTPS / L7)<br/>Anycast Global IP"]
+
+    subgraph VPC["{prefix}-vpc"]
+        subgraph Subnet["{prefix}-subnet<br/>asia-northeast1<br/>Private Google Access: ON"]
+            LB --> GCE["GCE: {prefix}-web<br/>外部IPなし<br/>Apache + PHP<br/>Cloud SQL Proxy<br/>Ops Agent"]
+        end
+        GCE -->|"Private IP"| PSA["Private Services Access<br/>(VPC Peering)"]
+        PSA --> SQL["Cloud SQL<br/>MySQL 8.0<br/>{prefix}-db<br/>Private IPのみ"]
+        NAT["Cloud Router + Cloud NAT<br/>GCE→外部通信 (apt, pip等)"]
+    end
+
+    GCE -->|"ログ/メトリクス"| MON["Cloud Logging<br/>+ Cloud Monitoring<br/>(ログ検索・メトリクス<br/>ダッシュボード・アラート)"]
+    Admin["管理者PC<br/>gcloud CLI"] -->|"IAP Tunnel SSH"| GCE
+
+    style VPC fill:#e8f0fe,stroke:#4285f4,stroke-width:2px
+    style Subnet fill:#e6f4ea,stroke:#34a853,stroke-width:1px
+    style Armor fill:#fce8e6,stroke:#ea4335
+    style LB fill:#fff3e0,stroke:#ff9800
+    style SQL fill:#e8f0fe,stroke:#4285f4
+    style MON fill:#f3e5f5,stroke:#9c27b0
 ```
 
 **{prefix}** は環境ごとに異なる: `myapp-dev` / `myapp-prod`
@@ -279,13 +244,18 @@ terraform/
 
 ### 4-3. 高可用性（HA）構成（prodのみ）
 
-```
-asia-northeast1-a          asia-northeast1-b
-┌──────────────┐          ┌──────────────┐
-│  プライマリ    │  同期     │  スタンバイ    │
-│  Cloud SQL   │────────▶│  Cloud SQL   │
-│  読み書き可    │ レプリケ   │  自動昇格     │
-└──────────────┘          └──────────────┘
+```mermaid
+graph LR
+    subgraph AZ_A["asia-northeast1-a"]
+        Primary["プライマリ<br/>Cloud SQL<br/>読み書き可"]
+    end
+    subgraph AZ_B["asia-northeast1-b"]
+        Standby["スタンバイ<br/>Cloud SQL<br/>自動昇格"]
+    end
+    Primary -->|"同期レプリケーション"| Standby
+
+    style AZ_A fill:#e8f0fe,stroke:#4285f4
+    style AZ_B fill:#fff3e0,stroke:#ff9800
 ```
 
 | 項目 | 説明 |
@@ -415,26 +385,19 @@ GCE内:
 > - ヘルスチェック: Compute Engine → **ヘルスチェック** → `{prefix}-hc`
 > - インスタンスグループ: Compute Engine → **インスタンスグループ** → `{prefix}-ig`
 
-```
-Global Anycast IP
-  │
-  ▼
-Forwarding Rule (HTTP:80 or HTTPS:443)
-  │
-  ▼
-Target HTTP(S) Proxy
-  │  ├─ SSL証明書（ドメインあり時、Googleマネージド）
-  │
-  ▼
-URL Map
-  │  ├─ デフォルト: backend-service
-  │
-  ▼
-Backend Service ←── Cloud Armor Policy 適用
-  │  ├─ ヘルスチェック: HTTP /health → 200
-  │
-  ▼
-Instance Group ({prefix}-web)
+```mermaid
+flowchart TD
+    IP["Global Anycast IP"] --> FR["Forwarding Rule<br/>(HTTP:80 or HTTPS:443)"]
+    FR --> Proxy["Target HTTP(S) Proxy<br/>+ SSL証明書（ドメインあり時、Googleマネージド）"]
+    Proxy --> URLMap["URL Map<br/>デフォルト: backend-service"]
+    URLMap --> Backend["Backend Service"]
+    ArmorPolicy["Cloud Armor Policy"] -.->|"適用"| Backend
+    Backend --> HC["ヘルスチェック<br/>HTTP /health → 200"]
+    Backend --> IG["Instance Group<br/>({prefix}-web)"]
+
+    style IP fill:#fff3e0,stroke:#ff9800
+    style ArmorPolicy fill:#fce8e6,stroke:#ea4335
+    style IG fill:#e6f4ea,stroke:#34a853
 ```
 
 <br>
